@@ -50,6 +50,21 @@ def apply_custom_css():
         display: inline-block;
         margin: 0.5rem 0;
     }
+    /* Custom styling for decision buttons */
+    div[data-testid="stButton"] > button[kind="secondary"] {
+        width: 100%;
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        margin-top: 0.5rem;
+    }
+    div[data-testid="stButton"] > button[kind="secondary"]:hover {
+        background-color: #1976D2;
+        color: white;
+        border: none;
+    }
     </style>
     """, unsafe_allow_html=True)
 

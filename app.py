@@ -97,7 +97,7 @@ def display_decision_history():
                 
                 # Display applied heuristics
                 if 'heuristics' in decision:
-                    st.markdown("**Applied Heuristics:**")
+                    st.markdown("**Relevant Heuristics:**")
                     for heuristic in decision['heuristics']:
                         with st.container():
                             st.markdown(f"""
@@ -358,7 +358,7 @@ def main():
                     <p>{st.session_state.current_scenario['option_a']['description']}</p>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button("Choose Option A"):
+                if st.button("Choose Option A", type="secondary"):
                     # Calculate impacts using heuristics
                     relevant_heuristics = heuristics_model.get_relevant_heuristics(
                         st.session_state.current_scenario['description'],
@@ -403,7 +403,7 @@ def main():
                     <p>{st.session_state.current_scenario['option_b']['description']}</p>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button("Choose Option B"):
+                if st.button("Choose Option B", type="secondary"):
                     # Calculate impacts using heuristics
                     relevant_heuristics = heuristics_model.get_relevant_heuristics(
                         st.session_state.current_scenario['description'],

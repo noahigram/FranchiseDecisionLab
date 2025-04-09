@@ -358,7 +358,7 @@ def main():
                     <p>{st.session_state.current_scenario['option_a']['description']}</p>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button("Choose Option A", type="secondary"):
+                if st.button("Choose Option A"):
                     # Calculate impacts using heuristics
                     relevant_heuristics = heuristics_model.get_relevant_heuristics(
                         st.session_state.current_scenario['description'],
@@ -403,7 +403,7 @@ def main():
                     <p>{st.session_state.current_scenario['option_b']['description']}</p>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button("Choose Option B", type="secondary"):
+                if st.button("Choose Option B"):
                     # Calculate impacts using heuristics
                     relevant_heuristics = heuristics_model.get_relevant_heuristics(
                         st.session_state.current_scenario['description'],

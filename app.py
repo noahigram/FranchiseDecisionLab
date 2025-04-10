@@ -95,7 +95,7 @@ def display_decision_history():
                 st.markdown(f"**Choice:** {decision['choice']}")
                 st.markdown(f"**Description:** {decision['description']}")
                 
-                # Display applied heuristics
+                # Display relevant heuristics
                 if 'heuristics' in decision:
                     st.markdown("**Relevant Heuristics:**")
                     for heuristic in decision['heuristics']:
@@ -310,7 +310,7 @@ def main():
         if st.session_state.topics_generated and st.session_state.scenario_topics:
             st.markdown("---")
             st.markdown("### Select a Scenario Topic")
-            st.markdown("Choose one of the following topics to begin your decision journey:")
+            st.markdown("Choose one of the following topics to begin your decision journey, or enter your own topic below:")
             
             # Create a container for better spacing
             with st.container():
@@ -333,6 +333,18 @@ def main():
                                     )
                                     st.session_state.step = 1
                                     st.rerun()
+            
+            # Add custom topic input
+            st.markdown("#### Or Enter a Custom Topic")
+            custom_topic = st.text_input("Custom Topic", placeholder="Enter your own scenario topic here", key="custom_topic")
+            if st.button("Use Custom Topic", type="primary", disabled=not custom_topic):
+                st.session_state.current_topic = custom_topic
+                st.session_state.current_scenario = generate_scenario_options(
+                    custom_topic,
+                    st.session_state.business_profile
+                )
+                st.session_state.step = 1
+                st.rerun()
     
     # Steps 1-5: Decision Making
     elif isinstance(st.session_state.step, int) and 1 <= st.session_state.step <= MAX_DECISIONS:
@@ -443,17 +455,24 @@ def main():
         
         else:
             # Show decision summary
-            st.markdown("### Decision Summary")
-            st.markdown(f"**Your Choice:** {st.session_state.last_choice['choice']}")
+            st.markdown("#### Your Choice: " + st.session_state.last_choice['choice'])
             st.markdown(f"**Description:** {st.session_state.last_choice['description']}")
             
             # Show impacts
-            st.markdown("### Impact Analysis")
             display_metric_changes(st.session_state.current_impacts)
             
             # Show analysis
             st.markdown("### Expert Analysis")
             st.markdown(st.session_state.current_analysis)
+            
+            # Show relevant heuristics
+            if 'heuristics' in st.session_state.last_choice:
+                st.markdown("### Relevant Heuristics")
+                for heuristic in st.session_state.last_choice['heuristics']:
+                    st.markdown(f"""
+                    :blue-background[**{heuristic['name']}**]
+                    :blue[{heuristic['description']}]
+                    """)
             
             # Continue button
             button_text = "View Final Summary" if st.session_state.step == MAX_DECISIONS else "Continue Journey"

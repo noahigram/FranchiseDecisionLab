@@ -72,7 +72,7 @@ Format your response as a simple list of topics, one per line, with no numbers o
         url = "https://api.protobots.ai/proto_bots/generate_v2"
         headers = {"Authorization": f"Bearer {st.secrets['PROTOBOTS_API_KEY']}"}
         data = {
-            "_id": "64f9ec54981dcfe5b966e5a3",
+            "_id": "67e6b4348602548f55512135",
             "stream": "false",
             "message.assistant.0": "I am a business scenario generator. I will create relevant scenario topics based on the business profile and frameworks.",
             "message.user.1": prompt
@@ -137,7 +137,7 @@ def make_api_call(prompt: str, system_message: str, max_retries: int = 3) -> Opt
     for attempt in range(max_retries):
         try:
             data = {
-                "_id": "64f9ec54981dcfe5b966e5a3",
+                "_id": "67e6b4348602548f55512135",
                 "stream": "false",
                 "message.assistant.0": system_message,
                 "message.user.1": prompt

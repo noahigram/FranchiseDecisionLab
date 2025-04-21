@@ -40,7 +40,7 @@ Format: comma-separated list of heuristic IDs (e.g., "workhard_testing_heuristic
                 "Authorization": f"Bearer {st.secrets['PROTOBOTS_API_KEY']}"
             }
             data = {
-                "_id": "64f9ec54981dcfe5b966e5a3",
+                "_id": "67e6b4348602548f55512135",
                 "stream": "false",
                 "message.assistant.0": "I will analyze which heuristics are most relevant for this business decision.",
                 "message.user.1": evaluation_prompt
@@ -124,7 +124,7 @@ Ensure the response is valid JSON and includes all four metrics. For cash flow, 
                 url = "https://api.protobots.ai/proto_bots/generate_v2"
                 headers = {"Authorization": f"Bearer {st.secrets['PROTOBOTS_API_KEY']}"}
                 data = {
-                    "_id": "64f9ec54981dcfe5b966e5a3",
+                    "_id": "67e6b4348602548f55512135",
                     "stream": "false",
                     "message.assistant.0": "I will analyze the business decision and calculate metric impacts.",
                     "message.user.1": prompt
@@ -234,7 +234,7 @@ Keep the analysis concise and focused on practical business implications."""
                 "Authorization": f"Bearer {st.secrets['PROTOBOTS_API_KEY']}"
             }
             data = {
-                "_id": "64f9ec54981dcfe5b966e5a3",
+                "_id": "67e6b4348602548f55512135",
                 "stream": "false",
                 "message.assistant.0": "I will analyze the business decision using relevant heuristics.",
                 "message.user.1": analysis_prompt
@@ -307,7 +307,7 @@ Format the response with clear sections and bullet points where appropriate."""
             url = "https://api.protobots.ai/proto_bots/generate_v2"
             headers = {"Authorization": f"Bearer {st.secrets['PROTOBOTS_API_KEY']}"}
             data = {
-                "_id": "64f9ec54981dcfe5b966e5a3",
+                "_id": "67e6b4348602548f55512135",
                 "stream": "false",
                 "message.assistant.0": "I will provide a comprehensive analysis of the franchise's decision journey.",
                 "message.user.1": analysis_prompt

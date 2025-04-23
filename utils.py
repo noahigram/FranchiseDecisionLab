@@ -1,5 +1,5 @@
 import streamlit as st
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 # Initial business metrics
 INITIAL_METRICS = {
@@ -53,20 +53,21 @@ def apply_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
-def display_business_metrics(metrics: Dict[str, int]):
-    """Display the current business metrics in a dashboard format."""
-    st.subheader("Business Metrics")
+def display_business_metrics(metrics: Dict[str, int], changes: Optional[Dict[str, int]] = None):
+    """Display the current business metrics."""
+    st.markdown("### Business Health")
     
-    cols = st.columns(4)
+    # Create metrics in columns
+    col1, col2, col3, col4 = st.columns(4)
     
-    with cols[0]:
+    with col1:
         st.metric(
-            "Cash Flow",
+            "Cash",
             f"${metrics['cash_flow']:,}",
-            delta=None
+            f"{changes['cash_flow']:+,}" if changes and 'cash_flow' in changes else None
         )
     
-    with cols[1]:
+    with col2:
         st.metric(
             "Customer Satisfaction",
             f"{metrics['customer_satisfaction']}%",
@@ -74,7 +75,7 @@ def display_business_metrics(metrics: Dict[str, int]):
         )
         st.progress(metrics['customer_satisfaction']/100)
     
-    with cols[2]:
+    with col3:
         st.metric(
             "Growth Potential",
             f"{metrics['growth_potential']}%",
@@ -82,7 +83,7 @@ def display_business_metrics(metrics: Dict[str, int]):
         )
         st.progress(metrics['growth_potential']/100)
     
-    with cols[3]:
+    with col4:
         st.metric(
             "Risk Level",
             f"{metrics['risk_level']}%",

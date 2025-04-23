@@ -1,7 +1,7 @@
 import json
 import random
 import requests
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import streamlit as st
 import time
 
@@ -41,26 +41,27 @@ Format: comma-separated list of heuristic IDs (e.g., "workhard_testing_heuristic
             }
             data = {
                 "_id": "67e6b4348602548f55512135",
-                "stream": "false",
+                "stream": "true",
                 "message.assistant.0": "I will analyze which heuristics are most relevant for this business decision.",
                 "message.user.1": evaluation_prompt
             }
             
             response = requests.post(url, headers=headers, data=data)
             if response.status_code == 200:
-                heuristic_ids = response.json().get('object', '').strip().split(',')
-                
-                # Get the selected heuristics
-                for heuristic_id in heuristic_ids:
-                    heuristic_id = heuristic_id.strip()
-                    if heuristic_id in self.heuristics:
-                        relevant_heuristics.append({
-                            'id': heuristic_id,
-                            'name': self.heuristics[heuristic_id]['name'],
-                            'description': self.heuristics[heuristic_id]['description'],
-                            'applicability': self.heuristics[heuristic_id]['applicability'],
-                            'limitations': self.heuristics[heuristic_id]['limitations']
-                        })
+                result = self._parse_response(response)
+                if result:
+                    heuristic_ids = result.strip().split(',')
+                    # Get the selected heuristics
+                    for heuristic_id in heuristic_ids:
+                        heuristic_id = heuristic_id.strip()
+                        if heuristic_id in self.heuristics:
+                            relevant_heuristics.append({
+                                'id': heuristic_id,
+                                'name': self.heuristics[heuristic_id]['name'],
+                                'description': self.heuristics[heuristic_id]['description'],
+                                'applicability': self.heuristics[heuristic_id]['applicability'],
+                                'limitations': self.heuristics[heuristic_id]['limitations']
+                            })
             
         except Exception as e:
             print(f"Error selecting heuristics: {str(e)}")
@@ -104,7 +105,7 @@ Return ONLY a JSON object with these exact keys and value ranges:
     "risk_level": <integer between -25 and 25>
 }}
 
-Ensure the response is valid JSON and includes all four metrics. For cash flow, consider typical franchise operations where most investments and impacts are moderate in scale."""
+Ensure the response is valid JSON and includes all four metrics. For cash, consider typical franchise operations where most investments and impacts are moderate in scale."""
 
         # Try up to 3 times with different prompt variations
         for attempt in range(3):
@@ -125,7 +126,7 @@ Ensure the response is valid JSON and includes all four metrics. For cash flow, 
                 headers = {"Authorization": f"Bearer {st.secrets['PROTOBOTS_API_KEY']}"}
                 data = {
                     "_id": "67e6b4348602548f55512135",
-                    "stream": "false",
+                    "stream": "true",
                     "message.assistant.0": "I will analyze the business decision and calculate metric impacts.",
                     "message.user.1": prompt
                 }
@@ -133,30 +134,26 @@ Ensure the response is valid JSON and includes all four metrics. For cash flow, 
                 response = requests.post(url, headers=headers, data=data)
                 
                 if response.status_code == 200:
-                    response_json = response.json()
-                    result = response_json.get('object', '')
-                    
+                    result = self._parse_response(response)
                     if result:
-                        # Clean the response text
-                        result = result.replace('```json', '').replace('```', '').strip()
-                        
-                        # Parse JSON
-                        impacts = json.loads(result)
-                        
-                        # Validate all required keys are present
-                        required_keys = ['cash_flow', 'customer_satisfaction', 'growth_potential', 'risk_level']
-                        if not all(key in impacts for key in required_keys):
-                            raise ValueError("Missing required metrics in response")
-                        
-                        # Validate value ranges with new cash flow limits
-                        if not (-50000 <= impacts['cash_flow'] <= 25000):
-                            impacts['cash_flow'] = max(-50000, min(25000, impacts['cash_flow']))
-                        
-                        for metric in ['customer_satisfaction', 'growth_potential', 'risk_level']:
-                            if not (-25 <= impacts[metric] <= 25):
-                                impacts[metric] = max(-25, min(25, impacts[metric]))
-                        
-                        return impacts
+                        try:
+                            impacts = json.loads(result)
+                            # Validate all required keys are present
+                            required_keys = ['cash_flow', 'customer_satisfaction', 'growth_potential', 'risk_level']
+                            if not all(key in impacts for key in required_keys):
+                                raise ValueError("Missing required metrics in response")
+                            
+                            # Validate value ranges with new cash flow limits
+                            if not (-50000 <= impacts['cash_flow'] <= 25000):
+                                impacts['cash_flow'] = max(-50000, min(25000, impacts['cash_flow']))
+                            
+                            for metric in ['customer_satisfaction', 'growth_potential', 'risk_level']:
+                                if not (-25 <= impacts[metric] <= 25):
+                                    impacts[metric] = max(-25, min(25, impacts[metric]))
+                            
+                            return impacts
+                        except json.JSONDecodeError:
+                            pass
                 
             except json.JSONDecodeError:
                 pass
@@ -215,7 +212,7 @@ Relevant Heuristics and Their Insights:
 {self._format_heuristics_for_analysis(relevant_heuristics)}
 
 Impact on Metrics:
-- Cash Flow: ${impacts['cash_flow']}
+- Cash: ${impacts['cash_flow']}
 - Customer Satisfaction: {impacts['customer_satisfaction']}%
 - Growth Potential: {impacts['growth_potential']}%
 - Risk Level: {impacts['risk_level']}%
@@ -235,14 +232,16 @@ Keep the analysis concise and focused on practical business implications."""
             }
             data = {
                 "_id": "67e6b4348602548f55512135",
-                "stream": "false",
+                "stream": "true",
                 "message.assistant.0": "I will analyze the business decision using relevant heuristics.",
                 "message.user.1": analysis_prompt
             }
             
             response = requests.post(url, headers=headers, data=data)
             if response.status_code == 200:
-                return response.json().get('object', '').strip()
+                result = self._parse_response(response)
+                if result:
+                    return result.strip()
                 
         except Exception as e:
             print(f"Error generating analysis: {str(e)}")
@@ -274,7 +273,7 @@ Limitations: {heuristic['limitations']}""")
         decisions_text = "\n\n".join([
             f"Decision {i+1}: {decision['topic']}\n"
             f"Choice: {decision['choice']}\n"
-            f"Impact: Cash Flow (${decision['impacts']['cash_flow']:+}), "
+            f"Impact: Cash (${decision['impacts']['cash_flow']:+}), "
             f"Customer Satisfaction ({decision['impacts']['customer_satisfaction']:+}%), "
             f"Growth ({decision['impacts']['growth_potential']:+}%), "
             f"Risk ({decision['impacts']['risk_level']:+}%)"
@@ -288,7 +287,7 @@ Decision History:
 {decisions_text}
 
 Final Business State:
-- Cash Flow: ${final_metrics['cash_flow']}
+- Cash: ${final_metrics['cash_flow']}
 - Customer Satisfaction: {final_metrics['customer_satisfaction']}%
 - Growth Potential: {final_metrics['growth_potential']}%
 - Risk Level: {final_metrics['risk_level']}%
@@ -308,15 +307,45 @@ Format the response with clear sections and bullet points where appropriate."""
             headers = {"Authorization": f"Bearer {st.secrets['PROTOBOTS_API_KEY']}"}
             data = {
                 "_id": "67e6b4348602548f55512135",
-                "stream": "false",
+                "stream": "true",
                 "message.assistant.0": "I will provide a comprehensive analysis of the franchise's decision journey.",
                 "message.user.1": analysis_prompt
             }
             
             response = requests.post(url, headers=headers, data=data)
             if response.status_code == 200:
-                return response.json().get('object', '').strip()
+                result = self._parse_response(response)
+                if result:
+                    return result.strip()
                 
         except Exception:
             return ("Unable to generate comprehensive analysis. Please review the decision history "
-                   "and metrics to assess the overall journey.") 
+                   "and metrics to assess the overall journey.")
+
+    def _parse_response(self, response) -> Optional[str]:
+        """Parse a streaming response and extract the content."""
+        if response.status_code != 200:
+            return None
+        
+        # Split the response into data chunks
+        chunks = [line for line in response.text.split('\n') if line.startswith('data:')]
+        
+        if not chunks:
+            return response.text
+        
+        # Get the last complete data chunk (ignoring loader messages)
+        for chunk in reversed(chunks):
+            try:
+                # Remove 'data: ' prefix and parse JSON
+                data = json.loads(chunk[5:].strip())
+                # Skip loader messages
+                if 'message' in data and ('loader' in data['message'] or data['message'] == '[DONE]'):
+                    continue
+                if 'message' in data:
+                    return data['message'].strip()
+                if 'object' in data:
+                    return data['object'].strip()
+            except json.JSONDecodeError:
+                continue
+        
+        return None 

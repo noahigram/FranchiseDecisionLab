@@ -3,6 +3,11 @@ import requests
 import random
 import json
 from typing import Dict, List, Optional
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def get_random_prompt_variation() -> Dict[str, str]:
     """Get random variations for prompts to increase response diversity"""
@@ -38,6 +43,8 @@ def get_random_prompt_variation() -> Dict[str, str]:
 
 def generate_scenario_topics(business_profile: str, heuristics_model=None) -> List[str]:
     """Generate relevant scenario topics based on the business profile and heuristics."""
+    logger.info("Attempting to generate scenario topics via API...")
+    
     # Get random variations for the prompt
     variations = get_random_prompt_variation()
     
@@ -61,7 +68,7 @@ Generate a list of scenario topics that:
 2. Cover different aspects of business management (operations, finance, marketing, etc.)
 3. Include both immediate challenges and long-term opportunities
 4. Are realistic and actionable
-5. Would have significant impact on business metrics (cash flow, customer satisfaction, growth potential, and risk level)
+5. Would have significant impact on business metrics (cash, customer satisfaction, growth potential, and risk level)
 6. Align with the provided business frameworks and their principles
 7. Create opportunities to apply these decision-making frameworks
 
@@ -73,7 +80,7 @@ Format your response as a simple list of topics, one per line, with no numbers o
         headers = {"Authorization": f"Bearer {st.secrets['PROTOBOTS_API_KEY']}"}
         data = {
             "_id": "67e6b4348602548f55512135",
-            "stream": "false",
+            "stream": "true",
             "message.assistant.0": "I am a business scenario generator. I will create relevant scenario topics based on the business profile and frameworks.",
             "message.user.1": prompt
         }
@@ -81,26 +88,53 @@ Format your response as a simple list of topics, one per line, with no numbers o
         response = requests.post(url, headers=headers, data=data)
         
         if response.status_code == 200:
-            topics_text = response.json().get('object', '')
+            # Split the response into data chunks
+            chunks = [line for line in response.text.split('\n') if line.startswith('data:')]
+            topics_text = ''
+            
+            if chunks:
+                # Get the last complete data chunk (ignoring loader messages)
+                for chunk in reversed(chunks):
+                    try:
+                        # Remove 'data: ' prefix and parse JSON
+                        data = json.loads(chunk[5:].strip())
+                        # Skip loader messages
+                        if 'message' in data and ('loader' in data['message'] or data['message'] == '[DONE]'):
+                            continue
+                        if 'message' in data:
+                            topics_text = data['message']
+                            break
+                        if 'object' in data:
+                            topics_text = data['object']
+                            break
+                    except json.JSONDecodeError:
+                        continue
+            else:
+                topics_text = response.text
+            
             if topics_text:
                 # Clean and parse the response
                 topics = [
                     topic.strip().lstrip('0123456789. -•*')
-                    for topic in topics_text.replace('```text', '').replace('```', '').strip().split('\n')
+                    for topic in topics_text.split('\n')
                     if topic.strip()
                 ]
-                return topics[:7]  # Limit to 7 topics
+                topics = [t for t in topics if t and not t.startswith('data:')][:7]  # Limit to 7 topics
+                if topics:
+                    logger.info("Successfully generated scenario topics via API")
+                    return topics
         
-        # Fallback topics if API fails
+        logger.warning("API call failed or returned invalid response for scenario topics")
         return generate_fallback_topics(heuristics_model, business_profile)
         
     except Exception as e:
-        print(f"Error generating topics: {str(e)}")
+        logger.error(f"Error generating topics via API: {str(e)}")
         # Return fallback topics
         return generate_fallback_topics(heuristics_model, business_profile)
 
 def generate_fallback_topics(heuristics_model, business_profile: str) -> List[str]:
     """Generate fallback topics considering heuristics if available."""
+    logger.info("Using fallback topic generation")
     base_topics = [
         "Staff Management",
         "Marketing Strategy",
@@ -123,10 +157,12 @@ def generate_fallback_topics(heuristics_model, business_profile: str) -> List[st
                     else:
                         topic = name + " Initiative"
                     heuristic_topics.append(topic)
+                logger.info("Generated fallback topics with heuristics")
                 return heuristic_topics + base_topics[:5-len(heuristic_topics)]
         except Exception as e:
-            print(f"Error generating heuristic-based topics: {str(e)}")
+            logger.error(f"Error generating heuristic-based topics: {str(e)}")
     
+    logger.info("Generated basic fallback topics")
     return base_topics
 
 def make_api_call(prompt: str, system_message: str, max_retries: int = 3) -> Optional[str]:
@@ -136,9 +172,11 @@ def make_api_call(prompt: str, system_message: str, max_retries: int = 3) -> Opt
     
     for attempt in range(max_retries):
         try:
+            logger.info(f"API call attempt {attempt + 1} of {max_retries}")
+            
             data = {
                 "_id": "67e6b4348602548f55512135",
-                "stream": "false",
+                "stream": "true",
                 "message.assistant.0": system_message,
                 "message.user.1": prompt
             }
@@ -146,19 +184,37 @@ def make_api_call(prompt: str, system_message: str, max_retries: int = 3) -> Opt
             response = requests.post(url, headers=headers, data=data)
             
             if response.status_code == 200:
-                result = response.json().get('object', '')
-                if result:
-                    return result.replace('```json', '').replace('```text', '').replace('```', '').strip()
+                # Split the response into data chunks
+                chunks = [line for line in response.text.split('\n') if line.startswith('data:')]
+                
+                if not chunks:
+                    return response.text
+                
+                # Get the last complete data chunk (ignoring loader messages)
+                for chunk in reversed(chunks):
+                    try:
+                        # Remove 'data: ' prefix and parse JSON
+                        data = json.loads(chunk[5:].strip())
+                        # Skip loader messages
+                        if 'message' in data and ('loader' in data['message'] or data['message'] == '[DONE]'):
+                            continue
+                        if 'message' in data:
+                            return data['message'].strip()
+                        if 'object' in data:
+                            return data['object'].strip()
+                    except json.JSONDecodeError:
+                        continue
             
-            print(f"Attempt {attempt + 1} failed with status {response.status_code}")
+            logger.warning(f"API call attempt {attempt + 1} failed with status {response.status_code}")
             
         except Exception as e:
-            print(f"Attempt {attempt + 1} failed with error: {str(e)}")
+            logger.error(f"API call attempt {attempt + 1} failed with error: {str(e)}")
         
         # Vary the prompt slightly for the next attempt
         if attempt < max_retries - 1:
             prompt = f"{get_random_prompt_variation()['perspective']}\n{prompt}"
     
+    logger.error("All API call attempts failed")
     return None
 
 def generate_scenario_options(topic: str, business_profile: str) -> Dict:
@@ -189,7 +245,7 @@ Guidelines:
 3. Options should be distinct but both potentially viable
 4. Make options realistic for the business profile
 5. Consider how each option might affect:
-   - Cash flow and financial metrics
+   - Cash and financial metrics
    - Customer satisfaction and experience
    - Growth potential and scalability
    - Risk level and business stability
@@ -211,83 +267,60 @@ Guidelines:
     # If all retries failed or validation failed, use fallback
     return generate_fallback_scenario(topic)
 
-def generate_fallback_scenario(topic: str) -> Dict:
-    """Generate a fallback scenario based on the topic."""
+def generate_fallback_scenario(topic: str, step: int = 1) -> Dict:
+    """Generate a fallback scenario based on the topic and step number."""
+    logger.info(f"Using fallback scenario generation for topic '{topic}' step {step}")
     topic_lower = topic.lower()
     
-    # Define topic-specific fallback scenarios
-    if "staff" in topic_lower or "hiring" in topic_lower:
-        return {
-            "description": f"Your franchise needs to address staffing challenges with {topic}.",
-            "option_a": {
-                "title": f"Comprehensive {topic} Program",
-                "description": "Invest in a full-scale professional development and hiring program with extensive training."
-            },
-            "option_b": {
-                "title": f"Gradual {topic} Implementation",
-                "description": "Take an incremental approach to staffing improvements with targeted hiring and basic training."
-            }
-        }
+    # Define step-specific aspects for common topics
+    if "fleet" in topic_lower or "vehicle" in topic_lower:
+        aspects = [
+            ("Route Optimization", "Implement new routing software vs. Enhance current system", "Fleet Efficiency Planning"),
+            ("Maintenance Schedule", "Preventive maintenance program vs. As-needed repairs", "Vehicle Maintenance Strategy"),
+            ("Vehicle Acquisition", "Purchase new vehicles vs. Lease with maintenance", "Fleet Expansion Decisions"),
+            ("Driver Training", "Comprehensive safety program vs. Basic compliance training", "Team Development Focus"),
+            ("Fuel Efficiency", "Invest in fuel monitoring vs. Driver incentive program", "Resource Management Planning")
+        ]
+    elif "staff" in topic_lower or "employee" in topic_lower:
+        aspects = [
+            ("Training Program", "Structured training vs. On-the-job learning", "Staff Development Framework"),
+            ("Compensation", "Performance bonuses vs. Higher base pay", "Team Compensation Strategy"),
+            ("Scheduling", "Fixed shifts vs. Flexible hours", "Workforce Schedule Planning"),
+            ("Development", "Career advancement vs. Skill specialization", "Career Growth Initiatives"),
+            ("Team Building", "Regular events vs. Project-based collaboration", "Team Culture Building")
+        ]
     elif "market" in topic_lower:
-        return {
-            "description": f"Your franchise must develop a new {topic} strategy to increase visibility and customer reach.",
-            "option_a": {
-                "title": f"Aggressive {topic} Campaign",
-                "description": "Launch a comprehensive marketing campaign across multiple channels with significant investment."
-            },
-            "option_b": {
-                "title": f"Targeted {topic} Approach",
-                "description": "Focus on specific, high-ROI marketing channels with a modest budget."
-            }
-        }
-    elif "tech" in topic_lower:
-        return {
-            "description": f"Your franchise needs to make decisions about {topic} implementation.",
-            "option_a": {
-                "title": f"Full {topic} Overhaul",
-                "description": "Implement a complete technology upgrade across all systems and processes."
-            },
-            "option_b": {
-                "title": f"Essential {topic} Updates",
-                "description": "Focus on critical technology updates while maintaining existing systems where possible."
-            }
-        }
-    elif "customer" in topic_lower or "service" in topic_lower:
-        return {
-            "description": f"Your franchise needs to enhance its {topic} to meet changing customer expectations.",
-            "option_a": {
-                "title": f"Premium {topic} Enhancement",
-                "description": "Implement comprehensive service improvements with staff training and new systems."
-            },
-            "option_b": {
-                "title": f"Focused {topic} Improvement",
-                "description": "Address key service issues through targeted improvements and basic staff training."
-            }
-        }
-    elif "financ" in topic_lower or "cost" in topic_lower:
-        return {
-            "description": f"Your franchise must make important {topic} decisions to ensure sustainable growth.",
-            "option_a": {
-                "title": f"Strategic {topic} Investment",
-                "description": "Make significant financial investments in key growth areas with long-term focus."
-            },
-            "option_b": {
-                "title": f"Conservative {topic} Management",
-                "description": "Implement careful cost controls while maintaining essential operations."
-            }
-        }
+        aspects = [
+            ("Target Analysis", "Focus on core demographic vs. Market expansion", "Market Research Phase"),
+            ("Promotion Strategy", "Digital marketing vs. Local partnerships", "Marketing Channel Selection"),
+            ("Pricing Model", "Premium positioning vs. Competitive pricing", "Price Strategy Development"),
+            ("Service Offering", "Specialized services vs. Broad coverage", "Service Portfolio Planning"),
+            ("Growth Plan", "Intensive local growth vs. Geographic expansion", "Expansion Strategy Design")
+        ]
     else:
-        return {
-            "description": f"Your franchise needs to make strategic decisions regarding {topic}.",
-            "option_a": {
-                "title": f"Comprehensive {topic} Strategy",
-                "description": f"Implement a full-scale approach to {topic} with significant resource allocation."
-            },
-            "option_b": {
-                "title": f"Focused {topic} Approach",
-                "description": f"Take a targeted approach to {topic} with minimal disruption to current operations."
-            }
+        aspects = [
+            ("Initial Strategy", "Aggressive approach vs. Gradual implementation", "Strategic Foundation Setting"),
+            ("Resource Allocation", "Heavy investment vs. Measured spending", "Resource Planning Phase"),
+            ("Process Implementation", "Complete overhaul vs. Phased rollout", "Implementation Approach"),
+            ("Team Structure", "Specialized roles vs. Cross-training", "Organizational Design"),
+            ("Future Planning", "Short-term results vs. Long-term development", "Growth Strategy Planning")
+        ]
+    
+    # Get the appropriate aspect for this step (0-based index)
+    aspect = aspects[min(step - 1, len(aspects) - 1)]
+    
+    return {
+        "sub_module_name": aspect[2],
+        "description": f"Your franchise needs to make decisions about {topic} focusing on {aspect[0]}.",
+        "option_a": {
+            "title": f"Comprehensive {aspect[0]}",
+            "description": f"Implement a full-scale approach to {aspect[0]} with significant resource allocation."
+        },
+        "option_b": {
+            "title": f"Focused {aspect[0]}",
+            "description": f"Take a targeted approach to {aspect[0]} with minimal disruption to current operations."
         }
+    }
 
 def generate_decision_analysis(scenario_description: str, choice_title: str, impacts: Dict[str, int], relevant_heuristics: List[Dict]) -> str:
     """Generate an analysis of the decision and its impacts, using heuristics as frameworks."""
@@ -363,9 +396,9 @@ def generate_fallback_analysis(scenario_description: str, choice_title: str, imp
         
         elif "financial" in heuristic['name'].lower() or "cash" in heuristic['name'].lower():
             if impacts['cash_flow'] > 0:
-                heuristic_analysis += f"The positive cash flow impact (${impacts['cash_flow']:+,}) aligns with the framework's principles regarding {heuristic['applicability']}. "
+                heuristic_analysis += f"The positive cash impact (${impacts['cash_flow']:+,}) aligns with the framework's principles regarding {heuristic['applicability']}. "
             else:
-                heuristic_analysis += f"The framework suggests that the cash flow reduction (${impacts['cash_flow']:+,}) may be justified if {heuristic['applicability']}. "
+                heuristic_analysis += f"The framework suggests that the cash reduction (${impacts['cash_flow']:+,}) may be justified if {heuristic['applicability']}. "
         
         else:
             # Generic analysis for other types of heuristics
@@ -380,4 +413,85 @@ def generate_fallback_analysis(scenario_description: str, choice_title: str, imp
     else:
         analysis_parts.append("\n\nWhile the immediate impacts may be challenging, these frameworks suggest the decision could provide valuable learning opportunities and potential for future adaptation.")
     
-    return "".join(analysis_parts) 
+    return "".join(analysis_parts)
+
+def parse_streaming_response(response_text: str) -> str:
+    """Parse a streaming response to extract the actual content."""
+    # Split the response into data chunks
+    chunks = [line for line in response_text.split('\n') if line.startswith('data:')]
+    
+    if not chunks:
+        return response_text
+    
+    # Get the last complete data chunk (ignoring loader messages)
+    content = ''
+    for chunk in reversed(chunks):
+        try:
+            # Remove 'data: ' prefix and parse JSON
+            data = json.loads(chunk[5:].strip())
+            # Skip loader messages
+            if 'message' in data and ('loader' in data['message'] or data['message'] == '[DONE]'):
+                continue
+            if 'message' in data:
+                content = data['message']
+                break
+            if 'object' in data:
+                content = data['object']
+                break
+        except json.JSONDecodeError:
+            continue
+    
+    return content.strip()
+
+def generate_topic_scenario(topic: str, business_profile: str, step: int) -> Dict:
+    """Generate a scenario for a specific step within a topic's learning journey."""
+    logger.info(f"Attempting to generate scenario for step {step} via API...")
+    
+    # Get random variations for the prompt
+    variations = get_random_prompt_variation()
+    
+    base_prompt = f"""{variations['perspective']} create a specific scenario for step {step} of 5 in this learning journey:
+
+Topic: {topic}
+Business Profile: {business_profile}
+Step: {step} of 5
+
+First, create a brief name (3-5 words) for this specific part of the {topic} journey that describes its focus.
+Then create a scenario that:
+1. Addresses a specific aspect or challenge within {topic}
+2. Builds upon the overall topic but can stand independently
+3. Represents a realistic business situation
+4. Requires strategic decision-making
+5. Has meaningful impact on business metrics (cash, customer satisfaction, growth potential, and risk level)
+
+The response must follow this exact JSON structure:
+{{
+    "sub_module_name": "Brief name for this specific part (3-5 words)",
+    "description": "A specific situation related to {topic} (2-3 sentences)",
+    "option_a": {{
+        "title": "A short title for the first option (3-5 words)",
+        "description": "Brief description of this approach (1-2 sentences)"
+    }},
+    "option_b": {{
+        "title": "A short title for the second option (3-5 words)",
+        "description": "Brief description of this approach (1-2 sentences)"
+    }}
+}}"""
+
+    system_message = f"I will create a specific scenario for step {step} of the {topic} learning journey"
+    
+    result = make_api_call(base_prompt, system_message)
+    
+    if result:
+        try:
+            scenario = json.loads(result)
+            # Validate that the scenario is topic-specific
+            if any(word.lower() in scenario['description'].lower() for word in topic.split()):
+                logger.info(f"Successfully generated scenario for step {step} via API")
+                return scenario
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.error(f"Error parsing scenario JSON: {str(e)}")
+    
+    # If all retries failed or validation failed, use fallback
+    logger.warning(f"Using fallback scenario generation for step {step}")
+    return generate_fallback_scenario(topic, step) 

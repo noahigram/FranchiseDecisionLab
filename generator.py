@@ -485,8 +485,9 @@ The response must follow this exact JSON structure:
     if result:
         try:
             scenario = json.loads(result)
-            # Validate that the scenario is topic-specific
-            if any(word.lower() in scenario['description'].lower() for word in topic.split()):
+            # Less strict validation - check if we have a valid scenario structure
+            required_fields = ['sub_module_name', 'description', 'option_a', 'option_b']
+            if all(field in scenario for field in required_fields):
                 logger.info(f"Successfully generated scenario for step {step} via API")
                 return scenario
         except (json.JSONDecodeError, KeyError) as e:

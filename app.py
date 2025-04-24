@@ -637,17 +637,16 @@ def main():
     if st.session_state.step == 0:
         # Introduction section
         st.markdown("""
-        <div style='font-size: 1.2em; margin-bottom: 2em;'>
-        Welcome to the Franchise Decision Lab! This interactive tool helps you navigate complex business decisions 
-        using expert entrepreneurial heuristics - proven decision-making frameworks derived from successful franchise operators.
-        
-        To begin your journey, describe your franchise business below or use our example profile.
-        </div>
-        """, unsafe_allow_html=True)
-        
+            <div style='font-size: 1.2em; margin-bottom: 2em;'>
+            Welcome to the Franchise Decision Lab! Step into the role of a franchise operator and navigate complex business decisions using this interactive simulator powered by expert entrepreneurial heuristics - proven decision-making frameworks derived from successful franchise operators.
+
+            To begin your journey, describe your franchise business below or use our example profile.
+            </div>
+            """, unsafe_allow_html=True)
+    
         # Create a container for the OR section
         with st.container():
-            col1, col2, col3, col4 = st.columns([1.2, 0.4, 1.2, 3.2])  # Adjusted ratios to move everything left
+            col1, col2, col3, col4 = st.columns([1.2, 0.4, 1.2, 3.2])
             
             with col1:
                 st.markdown("<div style='font-size: 1.1rem; font-weight: 500; padding-top: 0.5rem;'>Describe your business</div>", unsafe_allow_html=True)
@@ -659,30 +658,46 @@ def main():
                 if st.button("Generate business profile", type="secondary"):
                     st.session_state.business_profile = EXAMPLE_PROFILE
                     st.rerun()
+        
+        # Create two columns for the main input area
+        left_col, right_col = st.columns([1, 1])
+        
+        with left_col:
+            # Profile input with example as placeholder
+            business_profile = st.text_area(
+                label="Business Profile",
+                label_visibility="collapsed",
+                value=st.session_state.business_profile if st.session_state.business_profile else "",
+                height=250,
+                placeholder=EXAMPLE_PROFILE
+            )
             
-            # Empty column for spacing
-            with col4:
-                st.write("")
+            # Generate scenarios button
+            if st.button("Generate Scenarios", type="primary"):
+                if business_profile:
+                    with st.spinner("Generating scenario topics..."):
+                        st.session_state.business_profile = business_profile
+                        st.session_state.scenario_topics = generate_scenario_topics(business_profile)
+                        st.session_state.topics_generated = True
+                        st.rerun()
+                else:
+                    st.error("Please enter a business profile to continue.")
         
-        # Profile input with example as placeholder
-        business_profile = st.text_area(
-            label="Business Profile",  # Add proper label
-            label_visibility="collapsed",  # Hide the label
-            value=st.session_state.business_profile if st.session_state.business_profile else "",
-            height=150,
-            placeholder=EXAMPLE_PROFILE
-        )
-        
-        # Generate scenarios button
-        if st.button("Generate Scenarios", type="primary"):
-            if business_profile:
-                with st.spinner("Generating scenario topics..."):
-                    st.session_state.business_profile = business_profile
-                    st.session_state.scenario_topics = generate_scenario_topics(business_profile)
-                    st.session_state.topics_generated = True
-                    st.rerun()
-            else:
-                st.error("Please enter a business profile to continue.")
+        with right_col:
+            st.markdown("""
+            <div style='background-color: rgba(78, 137, 174, 0.1); padding: 1.5rem; border-radius: 0.5rem; height: 100%;'>
+                <h4 style='margin: 0 0 0.5rem 0;'>What to Include in Your Profile</h4>
+                <p style='margin: 0 0 0.5rem 0;'>Consider including the following information to get the most relevant scenarios:</p>
+                <ul>
+                    <li>Type of franchise and location</li>
+                    <li>Physical characteristics (size, capacity, etc.)</li>
+                    <li>Target market demographics</li>
+                    <li>Current business challenges</li>
+                    <li>Growth objectives</li>
+                    <li>Key operational details</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Display topics if they've been generated
         if st.session_state.topics_generated and st.session_state.scenario_topics:
@@ -745,7 +760,7 @@ def main():
         # Option to reset
         col1, col2, col3 = st.columns([1, 1, 4])
         with col1:
-            if st.button("Reset Simulation", key="reset_simulation_main"):
+            if st.button("Quit Simulation", key="reset_simulation_main"):
                 reset_simulation()
                 st.rerun()
     

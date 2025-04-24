@@ -403,6 +403,13 @@ def display_decision_step(step_number: int, is_review_mode: bool = False, show_t
     # Display current scenario title only if show_title is True
     if show_title:
         st.markdown(f"### {st.session_state.current_topic} Module")
+        st.markdown("""
+        <div style='font-size: 1.1em; margin-bottom: 1.5em; line-height: 1.5;'>
+        Welcome to the {} module. In this simulation, you'll be faced with a series of critical business decisions that require careful consideration. 
+        Your choice will directly impact your franchise's performance across the following key metrics: cash flow, customer satisfaction, 
+        growth potential, and risk level. Your strategic thinking and decision-making skills will determine the overall health and sustainability of your franchise.
+        </div>
+        """.format(st.session_state.current_topic), unsafe_allow_html=True)
     
     # Add subtitle with part number and sub-module name
     if not is_review_mode:
@@ -746,6 +753,15 @@ def main():
     elif isinstance(st.session_state.step, int) and 1 <= st.session_state.step <= MAX_DECISIONS:
         # Display the main scenario title first
         st.markdown(f"### {st.session_state.current_topic} Module")
+        
+        # Add introduction text
+        st.markdown("""
+        <div style='font-size: 1.1em; margin-bottom: 1.5em; line-height: 1.5;'>
+        Welcome to the {} module. In this simulation, you'll be faced with a series of critical business decisions that require careful consideration. 
+        Your choice will directly impact your franchise's performance across the following key metrics: cash flow, customer satisfaction, 
+        growth potential, and risk level. Your strategic thinking and decision-making skills will determine the overall health and sustainability of your franchise.
+        </div>
+        """.format(st.session_state.current_topic), unsafe_allow_html=True)
         
         # Display timeline navigation
         display_timeline_navigation()
